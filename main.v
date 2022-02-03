@@ -33,12 +33,7 @@ Notation "'true'" := true (at level 1).
 Notation "'true'" := Tm_true (in custom tlc at level 0).
 Notation "'false'" := false (at level 1).
 Notation "'false'" := Tm_false (in custom tlc at level 0).
-Definition x : string := "x".
-Definition y : string := "y".
-Definition z : string := "z".
-Hint Unfold x : core.
-Hint Unfold y : core.
-Hint Unfold z : core.
+
 
 Inductive value: Tm -> Prop :=
   | value_abs: forall x T t,
@@ -114,21 +109,74 @@ Inductive has_type: Context -> Tm -> Ty -> Prop :=
       G |- t1 \in (T_Func T11 T12) /\
       G |- t2 \in T11 ->
       G |- “t1 t2” \in T12
-  | T_True: forall G, G |- “true” \in “Bool”
-  | T_False: forall G, G |- “false” \in “Bool”
-
   where "G '|-' t \in T" := (has_type G t T).
 
 Notation "'|-' t \in T" := (has_type nil t T) (at level 30).
 
-Example has_bool: |- “(\x:Bool => x) true” \in “Bool”.
+(* Inversion of the typing relation *)
+Lemma inversion1: forall G t R x,
+  t = (Tm_var x) -> G |- x \in R -> In (x, R) G.
 Proof.
-  apply T_App with “Bool”.
+  intros.
+  inversion H0; subst.
+  apply H3.
+Qed.
+
+Lemma inversion2: forall G x T1 t2 R,
+  G |- “\x:T1 => t2” \in R ->
+  exists R2, (((x, T1); G) |- t2 \in R2 /\ R = T_Func T1 R2).
+Proof.
+  intros.
+  inversion H; subst.
+  exists T2.
   split.
-  - apply T_Abs.
-    apply T_Var.
-    unfold In.
-    left.
+  apply H5.
+  reflexivity.
+Qed.
+
+Lemma inversion3: forall G t1 t2 R,
+  G |- “t1 t2” \in R ->
+  exists T11, (G |- t1 \in “T11 -> R” /\ G |- t2 \in T11).
+Proof.
+  intros.
+  inversion H; subst.
+  exists T11.
+  apply H4.
+Qed.
+
+Lemma inversion4: forall G R,
+  G |- Tm_true \in R -> R = T_Bool.
+Proof.
+  intros.
+  inversion H.
+Qed.
+
+Lemma inversion5: forall G R,
+  G |- Tm_false \in R -> R = T_Bool.
+Proof.
+  intros.
+  inversion H.
+Qed.
+
+(* canonical *)
+Theorem bool_canonical: forall G v,
+  value v ->
+  G |- v \in T_Bool ->
+  v = Tm_true \/ v = Tm_false.
+Proof.
+  intros.
+  destruct H; subst; auto.
+  inversion H0.
+Qed.
+
+Theorem fun_canonical: forall G v T1 T2,
+  value v ->
+  G |- v \in “T1 -> T2” ->
+  exists x t2, v = “\x:T1 => t2”.
+Proof.
+  intros.
+  destruct H; inversion H0; subst; auto.
+  - exists x, t.
+    inversion H0; subst.
     reflexivity.
-  - apply T_True.
 Qed.
